@@ -48,7 +48,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.upstream # Path to your upstream Dockerfile
+          file: app/Dockerfile.upstream # Path to your upstream Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ env.BASE_IMAGE_NAME }}:${{ env.IMAGE_TAG }}
@@ -62,7 +62,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.suse # Path to your SUSE Dockerfile
+          file: app/Dockerfile.suse # Path to your SUSE Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ env.SUSE_IMAGE_NAME }}:${{ env.IMAGE_TAG }}
