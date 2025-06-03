@@ -40,7 +40,7 @@ spec:
         # Running LLMs can be memory and CPU intensive.
         resources:
           requests:
-            memory: "3Gi" # Minimum recommendation, increase for larger models
+            memory: "2Gi" # Minimum recommendation, increase for larger models
             cpu: "2"      # Minimum recommendation
           limits:
             memory: "16Gi" # Adjust as needed
