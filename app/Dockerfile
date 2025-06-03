@@ -6,7 +6,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy the requirements file into the container
-COPY requirements.txt .
+COPY /app/requirements.txt .
 
 # Install Python dependencies
 # Using --no-cache-dir to reduce image size
