@@ -116,8 +116,8 @@ jobs:
       - name: Commit and push updated manifests
         env:
           # Ensure these paths match the MANIFEST_PATH variables used above
-          MANIFEST_PATH_UPSTREAM: "fleet/upstream/deployment.yaml"
-          MANIFEST_PATH_SUSE: "fleet/suse/deployment.yaml"
+          MANIFEST_PATH_UPSTREAM: "fleet/upstream/31-deployment-llm-chat.yaml"
+          MANIFEST_PATH_SUSE: "fleet/suse/31-deployment-llm-chat.yaml"
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
