@@ -36,4 +36,4 @@ EXPOSE 7860
 
 # Command to run the application
 # Using unbuffered python output for better logging in containers
-CMD ["python", "-u", "main.py"]
+CMD ["python3", "-u", "main.py"]
