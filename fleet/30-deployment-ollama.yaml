@@ -72,6 +72,13 @@ spec:
             value: "/root/.ollama/models" # Default models directory
           - name: OLLAMA_DEBUG
             value: "false"
+      lifecycle:
+          postStart:
+            exec:
+              # Command to pull the tinyllama model after the container starts.
+              # This runs in the background, so Ollama can start serving.
+              # For more robust error handling or multiple models, consider a script.
+              command: ["/bin/sh", "-c", "ollama pull tinyllama:latest &"]
       volumes:
       - name: ollama-models
         emptyDir: {} # For testing. For persistence, use a PersistentVolumeClaim:
