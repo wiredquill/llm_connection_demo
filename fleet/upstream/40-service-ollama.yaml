@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ollama-service # This is the name your chat app will use to connect (OLLAMA_BASE_URL)
-  namespace: llm-connection # Ensure this is the same namespace
+  namespace: llm-connection-suse # Ensure this is the same namespace
   labels:
     app: ollama
 spec:

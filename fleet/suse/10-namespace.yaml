@@ -1,0 +1,8 @@
+# namespace.yaml
+# Defines the Kubernetes namespace for the LLM connection application and related services.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm-connection-suse
+  labels:
+    name: llm-connection-suse # Optional: Add labels to the namespace itself

@@ -1,0 +1,39 @@
+# fleet/Dockerfile.suse
+# Base image: SUSE BCI Python
+# Using Python 3.11 as an example; adjust version as needed.
+FROM registry.suse.com/bci/python:3.11
+
+LABEL maintainer="your-email@example.com"
+LABEL version="1.0-suse"
+LABEL description="SUSE version of the application with Ollama."
+
+# Set the working directory
+WORKDIR /app
+
+# Install system dependencies that might be needed by Python packages or Ollama
+# ca-certificates is good practice for HTTPS calls
+# gzip and tar for potentially decompressing Ollama if downloaded as tarball
+# curl for downloading Ollama
+# sudo is often needed by the ollama install script
+RUN zypper refresh && \
+    zypper install -y --no-confirm ca-certificates gzip tar curl sudo && \
+    zypper clean -a
+
+# Copy application requirements first to leverage Docker cache
+COPY ./app/requirements.txt /app/requirements.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+
+# Environment variable for Ollama API URL (can be overridden at runtime)
+# The default points to Ollama running on the host machine or a locally networked service.
+# For Kubernetes, this would typically be a service name like 'http://ollama-service:11434'
+ENV OLLAMA_BASE_URL="http://ollama-service:11434"
+
+# Expose the port Gradio will run on
+EXPOSE 7860
+
+# Command to run the application
+# Using unbuffered python output for better logging in containers
+CMD ["python", "-u", "main.py"]

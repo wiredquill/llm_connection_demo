@@ -1,5 +1,5 @@
 # .github/workflows/ci-cd.yaml
-name: Build, Push, and Update K8s Manifest
+name: Build, Push, and Update K8s Manifests (Standard & SUSE)
 
 on:
   push:
@@ -18,96 +18,118 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Fetches all history so you can push back to the repo (if updating manifests)
-          fetch-depth: 0 
+          fetch-depth: 0 # Fetches all history for committing manifest changes
 
-      - name: Set up QEMU (for multi-platform builds, optional but good practice)
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Login to GitHub Container Registry (GHCR)
-      # For GHCR, GITHUB_TOKEN is automatically available and has permissions if 'packages: write' is set.
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
-      # --- OR ---
-      # Login to Docker Hub (Uncomment and use this section if you prefer Docker Hub)
-      # - name: Login to Docker Hub
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }} # Create this secret in your repo settings
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}    # Create this secret in your repo settings (use an Access Token)
 
       - name: Generate image tag
         id: image_meta
         run: |
-          # Using the first 7 characters of the commit SHA as the tag
           TAG=$(echo $GITHUB_SHA | cut -c1-7)
           echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
           echo "Generated tag: $TAG"
+          # Define base image names for clarity
+          echo "BASE_IMAGE_NAME=${{ github.event.repository.name }}" >> $GITHUB_ENV
+          echo "SUSE_IMAGE_NAME=${{ github.event.repository.name }}-suse" >> $GITHUB_ENV
 
-      - name: Build and push Docker image
+      # --- Build and Push Standard Image ---
+      - name: Build and push Standard Docker image
         uses: docker/build-push-action@v5
         with:
-          context: . # Assumes Dockerfile is in the root of your repository
-          file: ./app/Dockerfile # Path to your Dockerfile
+          context: .
+          file: ./Dockerfile.standard # Path to your standard Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ env.IMAGE_TAG }}
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest 
-          # platforms: linux/amd64,linux/arm64 # Optional: for multi-platform images
+            ghcr.io/${{ github.repository_owner }}/${{ env.BASE_IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.BASE_IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Install yq (for updating YAML files)
+          # platforms: linux/amd64,linux/arm64 # Optional
+
+      # --- Build and Push SUSE Image ---
+      - name: Build and push SUSE Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.suse # Path to your SUSE Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ env.SUSE_IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.SUSE_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # platforms: linux/amd64,linux/arm64 # Optional
+
+      - name: Install yq
         run: |
           sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
           sudo chmod +x /usr/bin/yq
           yq --version
 
-      - name: Update Kubernetes deployment manifest
+      # --- Update Standard Kubernetes Manifest ---
+      - name: Update Standard Kubernetes deployment manifest
         env:
-          # IMPORTANT: Adjust this path to where your K8s deployment YAML is located
-          MANIFEST_PATH: "fleet/31-deployment-llm-chat.yaml" 
-          # Construct the full new image name
-          NEW_IMAGE_GHCR: "ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ env.IMAGE_TAG }}"
-          # NEW_IMAGE_DOCKERHUB: "${{ secrets.DOCKERHUB_USERNAME }}/ollama-chat-app:${{ env.IMAGE_TAG }}" # If using DockerHub
+          # IMPORTANT: Adjust this path to your STANDARD K8s deployment YAML
+          MANIFEST_PATH_STANDARD: "fleet/standard/deployment.yaml" 
+          NEW_IMAGE_STANDARD: "ghcr.io/${{ github.repository_owner }}/${{ env.BASE_IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
         run: |
-          echo "Updating manifest file: $MANIFEST_PATH"
-          echo "Setting image to: $NEW_IMAGE_GHCR" # Or $NEW_IMAGE_DOCKERHUB
-
-          # Make sure the file exists
-          if [ ! -f "$MANIFEST_PATH" ]; then
-            echo "Error: Manifest file $MANIFEST_PATH not found!"
+          echo "Updating standard manifest file: $MANIFEST_PATH_STANDARD"
+          echo "Setting standard image to: $NEW_IMAGE_STANDARD"
+          if [ ! -f "$MANIFEST_PATH_STANDARD" ]; then
+            echo "Error: Standard manifest file $MANIFEST_PATH_STANDARD not found!"
             exit 1
           fi
-          
-          # Use yq to update the image field. Adjust the path within the YAML if needed.
-          # This assumes the image is in the first container of the deployment.
-          yq eval '.spec.template.spec.containers[0].image = strenv(NEW_IMAGE_GHCR)' -i "$MANIFEST_PATH"
-          # If using DockerHub, use:
-          # yq eval '.spec.template.spec.containers[0].image = strenv(NEW_IMAGE_DOCKERHUB)' -i "$MANIFEST_PATH"
-          
-          echo "Manifest file updated:"
-          cat "$MANIFEST_PATH"
+          # Adjust the yq path '.spec.template.spec.containers[0].image' if your image is in a different location
+          yq eval '.spec.template.spec.containers[0].image = strenv(NEW_IMAGE_STANDARD)' -i "$MANIFEST_PATH_STANDARD"
+          echo "Standard manifest file updated:"
+          cat "$MANIFEST_PATH_STANDARD"
 
-      - name: Commit and push updated manifest
+      # --- Update SUSE Kubernetes Manifest ---
+      - name: Update SUSE Kubernetes deployment manifest
         env:
-          MANIFEST_PATH: "fleet/31-deployment-llm-chat.yaml" # Ensure this matches above
+          # IMPORTANT: Adjust this path to your SUSE K8s deployment YAML
+          MANIFEST_PATH_SUSE: "fleet/suse/deployment.yaml" 
+          NEW_IMAGE_SUSE: "ghcr.io/${{ github.repository_owner }}/${{ env.SUSE_IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+        run: |
+          echo "Updating SUSE manifest file: $MANIFEST_PATH_SUSE"
+          echo "Setting SUSE image to: $NEW_IMAGE_SUSE"
+          if [ ! -f "$MANIFEST_PATH_SUSE" ]; then
+            echo "Error: SUSE manifest file $MANIFEST_PATH_SUSE not found!"
+            exit 1
+          fi
+          # Adjust the yq path '.spec.template.spec.containers[0].image' if your image is in a different location
+          yq eval '.spec.template.spec.containers[0].image = strenv(NEW_IMAGE_SUSE)' -i "$MANIFEST_PATH_SUSE"
+          echo "SUSE manifest file updated:"
+          cat "$MANIFEST_PATH_SUSE"
+
+      - name: Commit and push updated manifests
+        env:
+          # Ensure these paths match the MANIFEST_PATH variables used above
+          MANIFEST_PATH_STANDARD: "fleet/standard/deployment.yaml"
+          MANIFEST_PATH_SUSE: "fleet/suse/deployment.yaml"
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add "$MANIFEST_PATH"
+          
+          # Add both manifest files
+          git add "$MANIFEST_PATH_STANDARD" "$MANIFEST_PATH_SUSE"
+          
           # Check if there are changes to commit
           if git diff --staged --quiet; then
-            echo "No changes to commit in manifest file."
+            echo "No changes to commit in manifest files."
           else
-            git commit -m "CI: Update image tag to ${{ env.IMAGE_TAG }} for ollama-chat-app"
+            git commit -m "CI: Update image tags to ${{ env.IMAGE_TAG }} for standard and SUSE deployments"
             git push
-            echo "Pushed updated manifest to repository."
+            echo "Pushed updated manifests to repository."
           fi

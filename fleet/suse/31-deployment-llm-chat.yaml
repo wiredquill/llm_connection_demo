@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: llm-connection # ✔ Namespace specified
+  namespace: llm-connection-suse # ✔ Namespace specified
   name: ollama-chat-app # ✔ Name is fine
 spec:
   replicas: 1 # ✔ 1 pod
