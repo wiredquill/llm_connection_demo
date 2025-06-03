@@ -4,13 +4,12 @@ import json
 import threading
 import time
 import os
-import logging # Added for logging
-from typing import Dict, List, Tuple
+import logging
+from typing import Dict, List, Any # Changed Tuple to Any for history items
 
 # --- Logging Configuration ---
-# Configure logging to output to stdout, which is standard for containers
 logging.basicConfig(
-    level=logging.INFO, # Set to DEBUG for more verbose output
+    level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
@@ -61,7 +60,7 @@ class ChatInterface:
             return "🔴"
         except Exception as e:
             logger.error(f"Unexpected error checking provider {provider_name} at {url}: {e}. Status: ❓")
-            return "❓" # Unknown status
+            return "❓"
 
     def update_all_provider_status(self):
         logger.info("Starting to update status for all providers.")
@@ -104,35 +103,46 @@ class ChatInterface:
             logger.error(f"Unexpected error fetching Ollama models: {str(e)}")
             return [f"Error fetching models: {str(e)}"]
 
-    def chat_with_ollama(self, message: str, history: List, model: str) -> List[Tuple[str, str]]:
+    def chat_with_ollama(self, message: str, history: List[Dict[str, str]], model: str) -> List[Dict[str, str]]:
         logger.info(f"Attempting to chat with Ollama model: {model}")
+        
+        # Append user message to history in the new format
+        current_history = history + [{"role": "user", "content": message}]
+
         if not model or "Error" in model or "No models found" in model or "Connection Timeout" in model:
             logger.warning(f"Cannot chat: Invalid Ollama model selected or model not accessible ('{model}').")
-            return history + [(message, "Please select a valid and accessible Ollama model first.")]
+            # Append assistant error message
+            return current_history + [{"role": "assistant", "content": "Please select a valid and accessible Ollama model first."}]
         try:
+            # Construct prompt for Ollama. Some models benefit from seeing the history.
+            # For simplicity, we'll just send the current message.
+            # If you want to send history, you'd format `current_history` into the prompt.
+            prompt_for_ollama = message # Or construct from current_history
+
             payload = {
                 "model": model,
-                "prompt": message,
+                "prompt": prompt_for_ollama,
                 "stream": False
             }
             logger.debug(f"Sending payload to Ollama /api/generate: {payload}")
             response = requests.post(
                 f"{self.ollama_base_url}/api/generate",
                 json=payload,
-                timeout=60 # Increased timeout
+                timeout=60
             )
             response.raise_for_status()
             response_data = response.json()
             reply = response_data.get('response', 'No response received or unexpected format.')
             logger.info(f"Received reply from Ollama model {model}.")
-            logger.debug(f"Ollama reply content: {reply[:100]}...") # Log first 100 chars of reply
-            return history + [(message, reply)]
+            logger.debug(f"Ollama reply content: {reply[:100]}...")
+            # Append assistant reply
+            return current_history + [{"role": "assistant", "content": reply}]
         except requests.exceptions.Timeout:
             logger.error(f"Ollama request timed out for model {model}.")
-            return history + [(message, "Error: Ollama request timed out.")]
+            return current_history + [{"role": "assistant", "content": "Error: Ollama request timed out."}]
         except requests.exceptions.ConnectionError:
             logger.error(f"Failed to connect to Ollama for model {model}.")
-            return history + [(message, "Error: Failed to connect to Ollama. Is it running?")]
+            return current_history + [{"role": "assistant", "content": "Error: Failed to connect to Ollama. Is it running?"}]
         except requests.exceptions.HTTPError as e:
             error_message_detail = ""
             try:
@@ -141,16 +151,16 @@ class ChatInterface:
             except json.JSONDecodeError:
                 error_message_detail = e.response.text
             logger.error(f"Ollama API request failed for model {model} with status {e.response.status_code}. Details: {error_message_detail}")
-            error_message = f"Error: Ollama API request failed with status {e.response.status_code}."
+            api_error_message = f"Error: Ollama API request failed with status {e.response.status_code}."
             if error_message_detail:
-                 error_message += f" Details: {error_message_detail}"
-            return history + [(message, error_message)]
+                 api_error_message += f" Details: {error_message_detail}"
+            return current_history + [{"role": "assistant", "content": api_error_message}]
         except json.JSONDecodeError as e:
             logger.error(f"Could not decode Ollama's response (invalid JSON) for model {model}: {e}")
-            return history + [(message, "Error: Could not decode Ollama's response (invalid JSON).")]
+            return current_history + [{"role": "assistant", "content": "Error: Could not decode Ollama's response (invalid JSON)."}]
         except Exception as e:
             logger.error(f"An unexpected error occurred while chatting with Ollama model {model}: {str(e)}")
-            return history + [(message, f"An unexpected error occurred: {str(e)}")]
+            return current_history + [{"role": "assistant", "content": f"An unexpected error occurred: {str(e)}"}]
 
     def refresh_providers(self) -> gr.HTML:
         logger.info("Refreshing provider status display.")
@@ -164,18 +174,15 @@ class ChatInterface:
     def refresh_ollama_models(self) -> gr.Dropdown:
         logger.info("Refreshing Ollama models dropdown.")
         self.ollama_models = self.get_ollama_models()
-        # Ensure the value is valid or reset if not
         current_value = self.selected_model if self.selected_model in self.ollama_models else (self.ollama_models[0] if self.ollama_models and "Error" not in self.ollama_models[0] and "No models" not in self.ollama_models[0] else "")
         logger.info(f"Ollama models dropdown refreshed. Choices: {self.ollama_models}, Selected: {current_value}")
-        # The warning "The value passed into gr.Dropdown() is not in the list of choices" can occur if current_value is ""
-        # and "" is not explicitly in choices. allow_custom_value=True helps mitigate this.
         return gr.Dropdown(choices=self.ollama_models, label="🤖 Ollama Model", value=current_value, allow_custom_value=True)
 
 def create_interface():
     logger.info("Creating Gradio interface.")
     chat_instance = ChatInterface()
     css = """
-    /* CSS remains the same as provided */
+    /* CSS remains the same */
     .gradio-container {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -254,10 +261,10 @@ def create_interface():
                 gr.HTML("<h3 style='color: white; text-align: center;'>🤖 Ollama Settings</h3>")
                 selected_model_state = gr.State(value="")
                 model_dropdown = gr.Dropdown(
-                    choices=["Loading models..."], # Initial choices
+                    choices=["Loading models..."],
                     label="Select Ollama Model",
-                    value="", # Initial value
-                    allow_custom_value=True # Important for handling dynamic choices and empty initial value
+                    value="",
+                    allow_custom_value=True
                 )
                 refresh_models_btn = gr.Button(
                     "🔄 Refresh Ollama Models",
@@ -269,8 +276,7 @@ def create_interface():
                     height=500,
                     show_label=True,
                     container=True,
-                    # bubble_full_width=False, # Removed deprecated parameter
-                    type='messages' # Added type parameter
+                    type='messages' # Correct type
                 )
                 with gr.Row():
                     msg_input = gr.Textbox(
@@ -283,46 +289,31 @@ def create_interface():
                 clear_btn = gr.Button("🗑️ Clear Chat", variant="secondary")
 
         # Event handlers
-        def handle_send_message(message_text: str, history_list: List, current_selected_model: str):
+        def handle_send_message(message_text: str, history_list: List[Dict[str, str]], current_selected_model: str):
             logger.debug(f"handle_send_message called. Message: '{message_text}', Model: '{current_selected_model}'")
+            # Ensure history_list is a list, default to empty list if None
+            history_list = history_list or []
+
             if not message_text.strip():
                 logger.info("Empty message received, not sending.")
-                return history_list, "" # Return original history and clear input
-
-            # Gradio's chatbot with type='messages' expects history as a list of dictionaries
-            # For simplicity in chat_with_ollama, we can convert internally or adjust chat_with_ollama.
-            # Here, we'll adapt the input to chat_with_ollama if needed.
-            # However, the current chat_with_ollama returns a list of tuples.
-            # Let's assume for now the history_list is compatible or adapt it.
-            # For type='messages', history is usually:
-            # e.g. [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello!"}]
-            # Our chat_with_ollama currently appends (user_msg, bot_msg) tuples.
-            # We need to ensure consistency or convert.
-            # For now, let's assume history_list is managed correctly by Gradio and what chat_with_ollama expects.
+                return history_list, ""
 
             if not current_selected_model:
                 logger.warning("No Ollama model selected. Adding error to chat.")
-                # Adapt to type='messages' if chatbot expects it.
-                # For now, keeping tuple format for simplicity, assuming Gradio handles it.
-                # If type='messages' is strictly enforced by Gradio for history, this needs adjustment.
-                # The log "You have not specified a value for the `type` parameter" suggests it defaults to tuples.
-                # Now that we set type='messages', Gradio will expect a list of dicts.
-                # Let's adjust how we add to history for this error message.
-                # The send_message function in Gradio with type='messages' for chatbot
-                # should return a list of lists/tuples like [[user_msg, bot_msg], ...] or list of dicts.
-                # Let's stick to list of lists/tuples for now as the original code did.
-                # Gradio handles this conversion for display.
-                updated_history = history_list + [[message_text, "⚠️ Please select an Ollama model first."]]
-                return updated_history, message_text
+                # Append user message and assistant error message in the new format
+                updated_history = history_list + [
+                    {"role": "user", "content": message_text},
+                    {"role": "assistant", "content": "⚠️ Please select an Ollama model first."}
+                ]
+                return updated_history, message_text # Keep user message in input box
 
-            # Call chat_with_ollama with the selected model from state
-            # chat_with_ollama returns history + [(message, reply)]
+            # chat_with_ollama now handles history in the new format
             new_history = chat_instance.chat_with_ollama(message_text, history_list, current_selected_model)
-            return new_history, "" # Clear input box after sending
+            return new_history, ""
 
         def handle_clear_chat():
             logger.info("Clearing chat history.")
-            return [], ""
+            return [], "" # Chatbot expects an empty list for history
 
         def handle_refresh_providers():
             logger.info("Handling refresh providers button click.")
@@ -331,7 +322,6 @@ def create_interface():
         def handle_refresh_models():
             logger.info("Handling refresh Ollama models button click.")
             updated_dropdown_component = chat_instance.refresh_ollama_models()
-            # The component itself is returned to update the UI, and the new selected value for the state.
             new_selected_value = chat_instance.selected_model
             logger.debug(f"Refreshed models. New selected value for state: {new_selected_value}")
             return updated_dropdown_component, new_selected_value
@@ -339,9 +329,8 @@ def create_interface():
         def handle_model_selection(selected_model_from_dropdown: str):
             logger.info(f"Ollama model selection changed to: {selected_model_from_dropdown}")
             chat_instance.selected_model = selected_model_from_dropdown
-            return selected_model_from_dropdown # Update the state
+            return selected_model_from_dropdown
 
-        # Connect events
         send_btn.click(
             handle_send_message,
             inputs=[msg_input, chatbot, selected_model_state],
@@ -372,15 +361,12 @@ def create_interface():
             provider_html_val = chat_instance.refresh_providers()
             initial_ollama_models_list = chat_instance.get_ollama_models()
             chat_instance.ollama_models = initial_ollama_models_list
-            
             initial_selected_model = ""
             if initial_ollama_models_list and isinstance(initial_ollama_models_list, list) and \
                not any(err_msg in initial_ollama_models_list[0] for err_msg in ["Error", "No models", "Connection Timeout"]):
                 initial_selected_model = initial_ollama_models_list[0]
-            
             chat_instance.selected_model = initial_selected_model
             logger.info(f"Initial load complete. Provider HTML ready. Ollama models: {initial_ollama_models_list}, Selected: {initial_selected_model}")
-            
             return (
                 provider_html_val,
                 gr.Dropdown(choices=initial_ollama_models_list, value=initial_selected_model, label="🤖 Ollama Model", allow_custom_value=True),
@@ -400,7 +386,7 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=7860,
         share=False,
-        debug=os.getenv("GRADIO_DEBUG", "true").lower() == "true", # Control debug via env var
+        debug=os.getenv("GRADIO_DEBUG", "true").lower() == "true",
         show_error=True
     )
     logger.info("Gradio application launched.")
