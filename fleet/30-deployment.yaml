@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: llm-connection
+  namespace: llm-connection
   name: ollama-chat-app
 spec:
   replicas: 1 # Or more for scalability
