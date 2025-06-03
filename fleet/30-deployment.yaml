@@ -14,23 +14,23 @@ spec:
         app: ollama-chat-app
     spec:
       containers:
-      - name: chat-app
-        image: ghcr.io/wiredquill/llm_connection_demo:latest # Your image
-        ports:
-        - containerPort: 7860
-        env:
-        - name: OLLAMA_BASE_URL
-          value: "http://ollama-service:11434" # Points to Ollama K8s service
-        # Add readiness and liveness probes for robustness
-        readinessProbe:
-          httpGet:
-            path: / # Gradio usually serves on root
-            port: 7860
-          initialDelaySeconds: 15
-          periodSeconds: 10
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 7860
-          initialDelaySeconds: 30
-          periodSeconds: 20
+        - name: chat-app
+          image: ghcr.io/wiredquill/llm_connection_demo:0039464 # Your image
+          ports:
+            - containerPort: 7860
+          env:
+            - name: OLLAMA_BASE_URL
+              value: "http://ollama-service:11434" # Points to Ollama K8s service
+          # Add readiness and liveness probes for robustness
+          readinessProbe:
+            httpGet:
+              path: / # Gradio usually serves on root
+              port: 7860
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 7860
+            initialDelaySeconds: 30
+            periodSeconds: 20
