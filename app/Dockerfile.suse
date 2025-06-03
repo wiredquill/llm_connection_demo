@@ -25,6 +25,9 @@ COPY ./app/requirements.txt /app/requirements.txt
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the rest of the application code into the container
+COPY /app/main.py .
+
 
 # Environment variable for Ollama API URL (can be overridden at runtime)
 # The default points to Ollama running on the host machine or a locally networked service.
