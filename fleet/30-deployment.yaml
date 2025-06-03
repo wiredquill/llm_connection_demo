@@ -1,30 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: llm-connection
-  name: ollama-chat-app
+  namespace: llm-connection         # ✔ Namespace specified
+  name: ollama-chat-app             # ✔ Name is fine
 spec:
-  replicas: 1 # Or more for scalability
+  replicas: 1                       # ✔ 1 pod
   selector:
     matchLabels:
-      app: ollama-chat-app
+      app: ollama-chat-app         # ✔ Matches template labels
   template:
     metadata:
       labels:
-        app: ollama-chat-app
+        app: ollama-chat-app       # ✔ Matches selector
     spec:
       containers:
         - name: chat-app
-          image: ghcr.io/wiredquill/llm_connection_demo:0039464 # Your image
+          image: ghcr.io/wiredquill/llm_connection_demo:0039464  # ✔ Image seems correct
           ports:
-            - containerPort: 7860
+            - containerPort: 7860                                 # ✔ Gradio default
           env:
             - name: OLLAMA_BASE_URL
-              value: "http://ollama-service:11434" # Points to Ollama K8s service
-          # Add readiness and liveness probes for robustness
+              value: "http://ollama-service:11434"                # ✔ Should point to valid service
           readinessProbe:
             httpGet:
-              path: / # Gradio usually serves on root
+              path: /
               port: 7860
             initialDelaySeconds: 15
             periodSeconds: 10
