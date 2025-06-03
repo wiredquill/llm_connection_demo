@@ -22,7 +22,7 @@ spec:
       # runtimeClassName: nvidia
       containers:
       - name: ollama
-        image: ollama/ollama:latest # Use the official Ollama image
+        image: ollama/ollama:v0.6.8 # Use the official Ollama image
         ports:
         - containerPort: 11434 # Default Ollama port
           name: http
