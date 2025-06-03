@@ -81,7 +81,7 @@ jobs:
       - name: Update upstream Kubernetes deployment manifest
         env:
           # IMPORTANT: Adjust this path to your upstream K8s deployment YAML
-          MANIFEST_PATH_UPSTREAM: "fleet/upstream/deployment-llm-chat.yaml" 
+          MANIFEST_PATH_UPSTREAM: "fleet/upstream/31-deployment-llm-chat.yaml" 
           NEW_IMAGE_UPSTREAM: "ghcr.io/${{ github.repository_owner }}/${{ env.BASE_IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
         run: |
           echo "Updating upstream manifest file: $MANIFEST_PATH_UPSTREAM"
