@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-connection
+  name: ollama-chat-app
+spec:
+  replicas: 1 # Or more for scalability
+  selector:
+    matchLabels:
+      app: ollama-chat-app
+  template:
+    metadata:
+      labels:
+        app: ollama-chat-app
+    spec:
+      containers:
+      - name: chat-app
+        image: registry.infra.wiredquill.com/library/ollama-chat-app:1.0 # Your image
+        ports:
+        - containerPort: 7860
+        env:
+        - name: OLLAMA_BASE_URL
+          value: "http://ollama-service:11434" # Points to Ollama K8s service
+        # Add readiness and liveness probes for robustness
+        readinessProbe:
+          httpGet:
+            path: / # Gradio usually serves on root
+            port: 7860
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 7860
+          initialDelaySeconds: 30
+          periodSeconds: 20
