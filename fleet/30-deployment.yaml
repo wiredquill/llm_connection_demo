@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: chat-app
-        image: registry.infra.wiredquill.com/library/ollama-chat-app:1.0 # Your image
+        image: ghcr.io/wiredquill/llm_connection_demo:latest # Your image
         ports:
         - containerPort: 7860
         env:

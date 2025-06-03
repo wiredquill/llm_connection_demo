@@ -64,3 +64,50 @@ jobs:
           # platforms: linux/amd64,linux/arm64 # Optional: for multi-platform images
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Install yq (for updating YAML files)
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+          yq --version
+
+      - name: Update Kubernetes deployment manifest
+        env:
+          # IMPORTANT: Adjust this path to where your K8s deployment YAML is located
+          MANIFEST_PATH: "fleet/30-deployment.yaml" 
+          # Construct the full new image name
+          NEW_IMAGE_GHCR: "ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ env.IMAGE_TAG }}"
+          # NEW_IMAGE_DOCKERHUB: "${{ secrets.DOCKERHUB_USERNAME }}/ollama-chat-app:${{ env.IMAGE_TAG }}" # If using DockerHub
+        run: |
+          echo "Updating manifest file: $MANIFEST_PATH"
+          echo "Setting image to: $NEW_IMAGE_GHCR" # Or $NEW_IMAGE_DOCKERHUB
+
+          # Make sure the file exists
+          if [ ! -f "$MANIFEST_PATH" ]; then
+            echo "Error: Manifest file $MANIFEST_PATH not found!"
+            exit 1
+          fi
+          
+          # Use yq to update the image field. Adjust the path within the YAML if needed.
+          # This assumes the image is in the first container of the deployment.
+          yq eval '.spec.template.spec.containers[0].image = strenv(NEW_IMAGE_GHCR)' -i "$MANIFEST_PATH"
+          # If using DockerHub, use:
+          # yq eval '.spec.template.spec.containers[0].image = strenv(NEW_IMAGE_DOCKERHUB)' -i "$MANIFEST_PATH"
+          
+          echo "Manifest file updated:"
+          cat "$MANIFEST_PATH"
+
+      - name: Commit and push updated manifest
+        env:
+          MANIFEST_PATH: "kubernetes/chat-app-deployment-namespaced.yaml" # Ensure this matches above
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add "$MANIFEST_PATH"
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit in manifest file."
+          else
+            git commit -m "CI: Update image tag to ${{ env.IMAGE_TAG }} for ollama-chat-app"
+            git push
+            echo "Pushed updated manifest to repository."
+          fi
