@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: llm-connection # Ensure this is the same namespace as your chat app
+  labels:
+    app: ollama
+spec:
+  replicas: 1 # Ollama typically runs as a single instance per node or for a set of models
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      # If your models are large and require specific node features (e.g., GPUs),
+      # you might need to add node selectors, tolerations, or affinity rules.
+      # For GPU access, you'd also need to configure the runtimeClass and resource requests/limits for GPUs.
+      # Example (for NVIDIA GPUs, requires NVIDIA device plugin on nodes):
+      # runtimeClassName: nvidia
+      containers:
+      - name: ollama
+        image: ollama/ollama:latest # Use the official Ollama image
+        ports:
+        - containerPort: 11434 # Default Ollama port
+          name: http
+        # --- Volume for Ollama Models ---
+        # This volume persists Ollama models even if the pod restarts.
+        # For production, consider using a PersistentVolumeClaim (PVC) with a suitable StorageClass.
+        # For simplicity here, we use an emptyDir which is ephemeral but good for testing.
+        # If you use emptyDir, models will be re-downloaded if the pod is rescheduled to a new node.
+        # To persist models across pod/node restarts, replace emptyDir with a PVC.
+        volumeMounts:
+        - name: ollama-models
+          mountPath: /root/.ollama # Ollama stores its models here by default
+        # --- Resource Requests and Limits ---
+        # Adjust these based on the models you plan to run and your cluster capacity.
+        # Running LLMs can be memory and CPU intensive.
+        resources:
+          requests:
+            memory: "4Gi" # Minimum recommendation, increase for larger models
+            cpu: "2"      # Minimum recommendation
+          limits:
+            memory: "16Gi" # Adjust as needed
+            cpu: "4"       # Adjust as needed
+            # If using GPUs:
+            # nvidia.com/gpu: "1"
+        # --- Health Probes ---
+        readinessProbe:
+          httpGet:
+            path: / # Ollama serves a 200 OK on its root path when running
+            port: 11434
+          initialDelaySeconds: 10 # Give Ollama some time to start
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 11434
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        # --- Environment Variables (Optional) ---
+      env:
+          - name: OLLAMA_HOST
+            value: "0.0.0.0:11434" # Ollama listens on this by default inside the container
+          - name: OLLAMA_MODELS
+            value: "/root/.ollama/models" # Default models directory
+          - name: OLLAMA_DEBUG
+            value: "false"
+      volumes:
+      - name: ollama-models
+        emptyDir: {} # For testing. For persistence, use a PersistentVolumeClaim:
+        # persistentVolumeClaim:
+        #   claimName: ollama-models-pvc # You would need to create this PVC
