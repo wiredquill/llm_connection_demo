@@ -98,7 +98,7 @@ jobs:
 
       - name: Commit and push updated manifest
         env:
-          MANIFEST_PATH: "kubernetes/chat-app-deployment-namespaced.yaml" # Ensure this matches above
+          MANIFEST_PATH: "fleet/30-deployment.yaml" # Ensure this matches above
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
