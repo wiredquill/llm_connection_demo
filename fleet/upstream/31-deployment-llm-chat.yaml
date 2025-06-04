@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: chat-app
-          image: ghcr.io/wiredquill/llm_connection_demo:be62d7f # ✔ Image seems correct
+          image: ghcr.io/wiredquill/llm_connection_demo:a65c265 # ✔ Image seems correct
           ports:
             - containerPort: 7860 # ✔ Gradio default
           env:
