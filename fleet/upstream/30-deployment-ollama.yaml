@@ -60,7 +60,7 @@ spec:
           httpGet:
             path: /
             port: 11434
-          initialDelaySeconds: 30
+          initialDelaySeconds: 90
           periodSeconds: 30
           timeoutSeconds: 5
           failureThreshold: 3
