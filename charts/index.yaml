@@ -3,24 +3,24 @@ entries:
   ollama-chat-suse:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2025-06-06T09:09:43.163761-07:00"
+    created: "2025-06-06T13:03:15.939396-07:00"
     description: A Helm chart for deploying the Ollama Chat application (SUSE version).
     digest: b86defce3141e4931c67444594eebd38c8473d137d756495ecc02f2b0d484bb2
     name: ollama-chat-suse
     type: application
     urls:
-    - https://wiredquill.github.io/llm_connection_demo/ollama-chat-suse-0.1.0.tgz
+    - https://wiredquill.github.io/llm_connection_demo/charts/ollama-chat-suse-0.1.0.tgz
     version: 0.1.0
   ollama-chat-upstream:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2025-06-06T09:09:43.16396-07:00"
+    created: "2025-06-06T13:03:15.939896-07:00"
     description: A Helm chart for deploying the Ollama Chat application (upstream
       version).
     digest: f0669413727f4440f920d61635672ed82fa088991ba05c24b091574b092cde27
     name: ollama-chat-upstream
     type: application
     urls:
-    - https://wiredquill.github.io/llm_connection_demo/ollama-chat-upstream-0.1.0.tgz
+    - https://wiredquill.github.io/llm_connection_demo/charts/ollama-chat-upstream-0.1.0.tgz
     version: 0.1.0
-generated: "2025-06-06T09:09:43.163433-07:00"
+generated: "2025-06-06T13:03:15.938618-07:00"
