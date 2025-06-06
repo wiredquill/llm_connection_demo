@@ -1,0 +1,27 @@
+# Default values for ollama-chat-upstream
+llm-chat:
+  image: "ghcr.io/wiredquill/llm_connection_demo:1660234"
+  service:
+    type: LoadBalancer # Options: LoadBalancer, NodePort, ClusterIP
+    port: 80
+
+ollama:
+  enabled: true # Set to false to disable the Ollama deployment
+  image: "ollama/ollama:0.6.8"
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "2"
+    limits:
+      memory: "16Gi"
+      cpu: "4"
+  # For persistence, you can specify a storageClass and size for a PVC
+  persistence:
+    enabled: false
+    storageClass: "" # e.g., "longhorn"
+    size: 20Gi
+  # The URL for the chat app to connect to. Defaults to the internal service.
+  serviceUrl: "http://ollama-service:11434"
+
+# Namespace for all resources
+namespace: "llm-connection"

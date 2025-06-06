@@ -1,0 +1,25 @@
+# Default values for ollama-chat-suse
+llm-chat:
+  image: "ghcr.io/wiredquill/llm_connection_demo-suse:1660234"
+  service:
+    type: LoadBalancer # Options: LoadBalancer, NodePort, ClusterIP
+    port: 80
+
+ollama:
+  enabled: true # Set to false to disable the Ollama deployment
+  image: "ollama/ollama:0.6.8"
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "2"
+    limits:
+      memory: "16Gi"
+      cpu: "2" # Note: SUSE deployment had a lower limit
+  persistence:
+    enabled: false
+    storageClass: ""
+    size: 20Gi
+  serviceUrl: "http://ollama-service-suse:11434"
+
+# Namespace for all resources
+namespace: "llm-connection-suse"

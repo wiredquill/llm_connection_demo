@@ -1,0 +1,65 @@
+questions:
+  - variable: namespace
+    label: "Namespace"
+    description: "The namespace to deploy all resources into."
+    type: string
+    required: true
+    default: "llm-connection"
+    group: "General"
+
+  - variable: llm-chat.service.type
+    label: "Chat App Service Type"
+    description: "The type of Kubernetes service to expose the chat application."
+    type: enum
+    options:
+      - "LoadBalancer"
+      - "NodePort"
+      - "ClusterIP"
+    default: "LoadBalancer"
+    group: "Chat Application"
+
+  - variable: llm-chat.service.port
+    label: "Chat App Service Port"
+    description: "The external port for the chat application service."
+    type: int
+    default: 80
+    group: "Chat Application"
+
+  - variable: ollama.enabled
+    label: "Deploy Local Ollama Instance"
+    description: "If selected, a local Ollama instance will be deployed. If unselected, you must provide an external Ollama URL."
+    type: boolean
+    default: true
+    group: "Ollama Configuration"
+
+  - variable: ollama.serviceUrl
+    label: "Ollama Base URL"
+    description: "The URL that the chat application will use to connect to Ollama."
+    type: string
+    required: true
+    show_if: "ollama.enabled=false"
+    default: "http://my-external-ollama-url:11434"
+    group: "Ollama Configuration"
+
+  - variable: ollama.persistence.enabled
+    label: "Enable Persistent Storage for Ollama Models"
+    description: "If selected, a PersistentVolumeClaim will be created to store Ollama models."
+    type: boolean
+    default: false
+    show_if: "ollama.enabled=true"
+    group: "Ollama Advanced"
+
+  - variable: ollama.persistence.storageClass
+    label: "Ollama PVC Storage Class"
+    description: "(Optional) The storage class for the Ollama models PVC."
+    type: storageclass
+    show_if: "ollama.enabled=true&&ollama.persistence.enabled=true"
+    group: "Ollama Advanced"
+
+  - variable: ollama.persistence.size
+    label: "Ollama PVC Size"
+    description: "The size of the persistent volume for Ollama models (e.g., 20Gi)."
+    type: string
+    default: "20Gi"
+    show_if: "ollama.enabled=true&&ollama.persistence.enabled=true"
+    group: "Ollama Advanced"
