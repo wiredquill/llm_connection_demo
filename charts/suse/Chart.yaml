@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ollama-chat-suse
+description: A Helm chart for deploying the Ollama Chat application (SUSE version).
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

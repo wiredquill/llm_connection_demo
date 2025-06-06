@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ollama-chat-upstream
+description: A Helm chart for deploying the Ollama Chat application (upstream version).
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
