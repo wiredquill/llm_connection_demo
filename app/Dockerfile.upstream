@@ -13,7 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the new Python backend script into the container
 # We are now using 'status_backend.py' instead of 'main.py'
-COPY status_backend.py .
+COPY ./app/status_backend.py /app/status_backend.py
+
 
 # REMOVED: The OLLAMA_BASE_URL is no longer needed in this container,
 # as its only job is to check external network status. Open WebUI will handle
