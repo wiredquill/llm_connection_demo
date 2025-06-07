@@ -114,10 +114,12 @@ class ChatInterface:
             # Append assistant error message
             return current_history + [{"role": "assistant", "content": "Please select a valid and accessible Ollama model first."}]
         try:
-            # Construct prompt for Ollama. Some models benefit from seeing the history.
-            # For simplicity, we'll just send the current message.
-            # If you want to send history, you'd format `current_history` into the prompt.
-            prompt_for_ollama = message # Or construct from current_history
+            # Construct prompt for Ollama, including history.
+            prompt_for_ollama = ""
+            for turn in current_history:
+                role = turn["role"]
+                content = turn["content"]
+                prompt_for_ollama += f"{role}: {content}\n"
 
             payload = {
                 "model": model,
@@ -390,4 +392,3 @@ if __name__ == "__main__":
         show_error=True
     )
     logger.info("Gradio application launched.")
-
