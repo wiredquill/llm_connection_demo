@@ -10,4 +10,4 @@ spec:
   - protocol: TCP
     port: 80 # External port you want to expose
     targetPort: 7860 # Container port
-  type: LoadBalancer # Or NodePort, ClusterIP depending on how you want to expose it
+  type: NodePort # Or NodePort, ClusterIP depending on how you want to expose it
