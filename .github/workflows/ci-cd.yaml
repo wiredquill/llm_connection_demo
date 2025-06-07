@@ -4,7 +4,7 @@ name: Build, Push, and Update K8s Manifests (upstream & SUSE)
 on:
   push:
     branches:
-      - main # Or your primary branch, e.g., master
+      - open-webui # Or your primary branch, e.g., master
   workflow_dispatch: # Allows manual triggering
 
 permissions:
