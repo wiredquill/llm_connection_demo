@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Copy the new requirements file into the container
 # This file should now contain: requests, Flask, flask-cors
-COPY requirements.txt .
+COPY ./app/requirements.txt /app/requirements.txt
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
