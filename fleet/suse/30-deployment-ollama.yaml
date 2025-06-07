@@ -78,7 +78,7 @@ spec:
               # Command to pull the tinyllama model after the container starts.
               # This runs in the background, so Ollama can start serving.
               # For more robust error handling or multiple models, consider a script.
-              command: ["/bin/sh", "-c", "ollama pull tinyllama:latest &"]
+              command: ["/bin/sh", "-c", "sleep 5 && /usr/bin/ollama pull tinyllama:latest > /tmp/post-start.log 2>&1 &"]
       volumes:
       - name: ollama-models
         emptyDir: {} # For testing. For persistence, use a PersistentVolumeClaim:
