@@ -1,3 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: llm-connection # Ensure this is the same namespace as your chat app
+  labels:
+    app: ollama
 spec:
   replicas: 1
   selector:
