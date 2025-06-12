@@ -1,35 +1,48 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: llm-connection # ✔ Namespace specified
-  name: ollama-chat-app # ✔ Name is fine
+  namespace: llm-connection-suse # As per your configuration
+  name: ollama-chat-app
 spec:
-  replicas: 1 # ✔ 1 pod
+  replicas: 1
   selector:
     matchLabels:
-      app: ollama-chat-app # ✔ Matches template labels
+      app: ollama-chat-app
   template:
     metadata:
       labels:
-        app: ollama-chat-app # ✔ Matches selector
+        app: ollama-chat-app
     spec:
       containers:
         - name: chat-app
-          image: ghcr.io/wiredquill/llm_connection_demo:be98aef # ✔ Image seems correct
+          image: ghcr.io/wiredquill/llm_connection_demo-suse:latest # Using the SUSE variant image
           ports:
-            - containerPort: 7860 # ✔ Gradio default
+            - containerPort: 7860
           env:
             - name: OLLAMA_BASE_URL
-              value: "http://ollama-service:11434" # ✔ Should point to valid service
+              value: "http://ollama-service:11434" # Ensure this service exists and points to the Ollama server
+          # --- ADD THIS SECTION ---
+          # Adding resource requests and limits prevents the container from being
+          # killed for using too much memory.
+          resources:
+            requests:
+              memory: "512Mi" # Request half a gigabyte of memory
+              cpu: "250m" # Request a quarter of a CPU core
+            limits:
+              memory: "1Gi"  # Allow it to use up to 1 gigabyte
+              cpu: "1"       # Allow it to use up to 1 full CPU core
+          # --- END ADDED SECTION ---
           readinessProbe:
             httpGet:
-              path: /
+              path: / # Gradio responds with 200 OK on the root path
               port: 7860
-            initialDelaySeconds: 30
+            initialDelaySeconds: 20 # Increased delay to give it more time to start
             periodSeconds: 10
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /
               port: 7860
-            initialDelaySeconds: 90
+            initialDelaySeconds: 45 # Increased delay
             periodSeconds: 20
+            failureThreshold: 3
