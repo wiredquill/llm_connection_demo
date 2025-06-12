@@ -386,4 +386,3 @@ if __name__ == "__main__":
         show_error=True
     )
     logger.info("Gradio application launched.")
-�
