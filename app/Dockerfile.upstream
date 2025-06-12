@@ -2,6 +2,8 @@
 # FROM sles15/python:3.11
 FROM python:3.11-slim
 
+RUN zypper ref && zypper install -y bash git
+
 # Set the working directory in the container
 WORKDIR /app
 
