@@ -5,7 +5,7 @@ import threading
 import time
 import os
 import logging
-from typing import Dict, List, Any # Changed Tuple to Any for history items
+from typing import Dict, List, Any
 
 # --- Logging Configuration ---
 logging.basicConfig(
@@ -53,7 +53,7 @@ class ChatInterface:
             logger.error(f"Timeout checking provider {provider_name} at {url}. Status: 🔴")
             return "🔴"
         except requests.exceptions.ConnectionError:
-            logger.error(f"Connection error checking provider {provider_name} at {url}. Status: 🔴")
+            logger.error(f"Connection error checking provider {provider_name} at {url}. Status: �")
             return "🔴"
         except requests.exceptions.RequestException as e:
             logger.error(f"Request exception checking provider {provider_name} at {url}: {e}. Status: 🔴")
@@ -106,15 +106,12 @@ class ChatInterface:
     def chat_with_ollama(self, message: str, history: List[Dict[str, str]], model: str) -> List[Dict[str, str]]:
         logger.info(f"Attempting to chat with Ollama model: {model}")
         
-        # Append user message to history in the new format
         current_history = history + [{"role": "user", "content": message}]
 
         if not model or "Error" in model or "No models found" in model or "Connection Timeout" in model:
             logger.warning(f"Cannot chat: Invalid Ollama model selected or model not accessible ('{model}').")
-            # Append assistant error message
             return current_history + [{"role": "assistant", "content": "Please select a valid and accessible Ollama model first."}]
         try:
-            # Construct prompt for Ollama, including history.
             prompt_for_ollama = ""
             for turn in current_history:
                 role = turn["role"]
@@ -137,7 +134,6 @@ class ChatInterface:
             reply = response_data.get('response', 'No response received or unexpected format.')
             logger.info(f"Received reply from Ollama model {model}.")
             logger.debug(f"Ollama reply content: {reply[:100]}...")
-            # Append assistant reply
             return current_history + [{"role": "assistant", "content": reply}]
         except requests.exceptions.Timeout:
             logger.error(f"Ollama request timed out for model {model}.")
@@ -167,7 +163,8 @@ class ChatInterface:
     def refresh_providers(self) -> gr.HTML:
         logger.info("Refreshing provider status display.")
         self.update_all_provider_status()
-        html_content = "<div style='background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-bottom: 10px;'><div style='color: white; font-size: 14px; line-height: 1.8;'>"
+        # Use SUSE 'Pine' for the background of the status box
+        html_content = "<div style='background: #0c322c; padding: 15px; border-radius: 10px; margin-bottom: 10px;'><div style='color: #efefef; font-size: 14px; line-height: 1.8;'>"
         for name, status in self.provider_status.items():
             html_content += f"{status} {name}<br/>"
         html_content += "</div></div>"
@@ -183,84 +180,86 @@ class ChatInterface:
 def create_interface():
     logger.info("Creating Gradio interface.")
     chat_instance = ChatInterface()
+    
+    # --- SUSE Themed CSS ---
+    # Using the provided color palette:
+    # Pine: #0c322c
+    # Jungle: #30ba78
+    # Fog: #efefef
+    # Waterhole: #2453ff
+    # White: #ffffff
     css = """
-    /* CSS remains the same */
     .gradio-container {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background-color: #0c322c; /* Pine */
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #efefef; /* Fog */
     }
     .main-header {
-        background: linear-gradient(145deg, rgba(255,255,255,0.25), rgba(255,255,255,0.1));
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255,255,255,0.3);
-        border-radius: 20px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        background-color: #30ba78; /* Jungle */
+        border: 1px solid #30ba78;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         padding: 20px;
         margin-bottom: 20px;
     }
-    .chat-container {
-        background: linear-gradient(145deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
-        backdrop-filter: blur(15px);
-        border: 1px solid rgba(255,255,255,0.2);
-        border-radius: 15px;
-        box-shadow: inset 0 2px 10px rgba(0,0,0,0.1), 0 4px 20px rgba(0,0,0,0.15);
-    }
-    .model-selector {
-        background: linear-gradient(145deg, rgba(255,255,255,0.2), rgba(255,255,255,0.1));
-        border: 1px solid rgba(255,255,255,0.3);
+    .control-panel, .chat-container {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(48, 186, 120, 0.2); /* Subtle Jungle border */
         border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        backdrop-filter: blur(10px);
+        padding: 15px;
     }
-    .status-indicator {
-        font-size: 14px;
+    h1, h2, h3 {
+        color: #ffffff;
         font-weight: 600;
-        color: #2c3e50;
     }
-    button {
-        background: linear-gradient(145deg, #4facfe 0%, #00f2fe 100%);
+    .gr-button {
+        background: #30ba78; /* Jungle */
+        color: #ffffff;
         border: none;
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
-        transition: all 0.3s ease;
+        border-radius: 8px;
+        box-shadow: 0 4px 10px rgba(48, 186, 120, 0.3);
+        transition: all 0.2s ease;
         font-weight: 600;
-        color: white;
     }
-    button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(79, 172, 254, 0.6);
+    .gr-button:hover {
+        background: #35d489; /* Lighter Jungle */
+        transform: translateY(-1px);
+        box-shadow: 0 6px 15px rgba(48, 186, 120, 0.4);
     }
     .refresh-btn {
-        background: linear-gradient(145deg, #a8edea 0%, #fed6e3 100%);
-        color: #2c3e50;
+        background: #2453ff; /* Waterhole */
     }
+    .refresh-btn:hover {
+        background: #4f75ff; /* Lighter Waterhole */
+    }
+    .gr-chatbot .message.user { background-color: #efefef; color: #0c322c; } /* Fog bg, Pine text */
+    .gr-chatbot .message.bot { background-color: #e0f8ee; color: #0c322c; } /* Lighter Mint-like bg, Pine text */
     """
-    with gr.Blocks(css=css, title="🚀 Ollama Chat Interface", theme=gr.themes.Soft()) as interface:
+    with gr.Blocks(css=css, title="SUSE AI Chat", theme=gr.themes.Base()) as interface:
         gr.HTML("""
         <div class="main-header">
-            <h1 style="text-align: center; color: white; font-size: 2.5em; margin: 0;
-                        text-shadow: 2px 2px 4px rgba(0,0,0,0.3); font-weight: 300;">
-                🚀 Ollama Chat Interface
+            <h1 style="text-align: center; color: white; font-size: 2.2em; margin: 0;
+                        text-shadow: 1px 1px 2px rgba(0,0,0,0.2); font-weight: 600;">
+                SUSE AI Chat
             </h1>
-            <p style="text-align: center; color: rgba(255,255,255,0.9); font-size: 1.1em;
+            <p style="text-align: center; color: rgba(255,255,255,0.95); font-size: 1.1em;
                         margin: 10px 0 0 0;">
-                Professional AI Chat with Provider Status Monitoring
+                Powered by Ollama | Provider Status Monitor
             </p>
         </div>
         """)
-        with gr.Row():
-            with gr.Column(scale=1, elem_classes="model-selector"):
-                gr.HTML("<h3 style='color: white; text-align: center; margin-top: 0;'>🌐 Provider Status</h3>")
+        with gr.Row(equal_height=False):
+            with gr.Column(scale=1, elem_classes="control-panel"):
+                gr.HTML("<h3 style='text-align: center; margin-top: 0;'>🌐 Provider Status</h3>")
                 provider_status_html = gr.HTML(
-                    value="<!-- Initial status will be loaded by interface.load -->",
-                    label="Provider Status"
+                    value="<!-- Initial status will be loaded -->"
                 )
                 refresh_providers_btn = gr.Button(
-                    "🔄 Refresh Provider Status",
+                    "🔄 Refresh Status",
                     elem_classes="refresh-btn"
                 )
-                gr.HTML("<hr style='border-color: rgba(255,255,255,0.3); margin: 20px 0;'>")
-                gr.HTML("<h3 style='color: white; text-align: center;'>🤖 Ollama Settings</h3>")
+                gr.HTML("<hr style='border-color: rgba(255,255,255,0.2); margin: 20px 0;'>")
+                gr.HTML("<h3 style='text-align: center;'>🤖 Ollama Settings</h3>")
                 selected_model_state = gr.State(value="")
                 model_dropdown = gr.Dropdown(
                     choices=["Loading models..."],
@@ -269,53 +268,48 @@ def create_interface():
                     allow_custom_value=True
                 )
                 refresh_models_btn = gr.Button(
-                    "🔄 Refresh Ollama Models",
+                    "🔄 Refresh Models",
                     elem_classes="refresh-btn"
                 )
-            with gr.Column(scale=3, elem_classes="chat-container"):
-                chatbot = gr.Chatbot(
-                    label="💬 Chat",
-                    height=500,
-                    show_label=True,
-                    container=True,
-                    type='messages' # Correct type
-                )
-                with gr.Row():
-                    msg_input = gr.Textbox(
-                        label="Message",
-                        placeholder="Type your message here...",
-                        lines=2,
-                        scale=4
+            with gr.Column(scale=3):
+                 with gr.Column(elem_classes="chat-container"):
+                    chatbot = gr.Chatbot(
+                        label="💬 Chat",
+                        height=550,
+                        show_label=False,
+                        bubble_full_width=False,
+                        elem_id="chatbot"
                     )
-                    send_btn = gr.Button("Send 🚀", scale=1)
-                clear_btn = gr.Button("🗑️ Clear Chat", variant="secondary")
+                    with gr.Row():
+                        msg_input = gr.Textbox(
+                            label="Message",
+                            placeholder="Type your message here...",
+                            lines=2,
+                            scale=4
+                        )
+                        send_btn = gr.Button("Send ❯", scale=1, variant="primary")
+                    clear_btn = gr.Button("🗑️ Clear Chat", variant="secondary")
 
         # Event handlers
         def handle_send_message(message_text: str, history_list: List[Dict[str, str]], current_selected_model: str):
             logger.debug(f"handle_send_message called. Message: '{message_text}', Model: '{current_selected_model}'")
-            # Ensure history_list is a list, default to empty list if None
             history_list = history_list or []
-
             if not message_text.strip():
                 logger.info("Empty message received, not sending.")
                 return history_list, ""
-
             if not current_selected_model:
                 logger.warning("No Ollama model selected. Adding error to chat.")
-                # Append user message and assistant error message in the new format
                 updated_history = history_list + [
                     {"role": "user", "content": message_text},
                     {"role": "assistant", "content": "⚠️ Please select an Ollama model first."}
                 ]
-                return updated_history, message_text # Keep user message in input box
-
-            # chat_with_ollama now handles history in the new format
+                return updated_history, message_text
             new_history = chat_instance.chat_with_ollama(message_text, history_list, current_selected_model)
             return new_history, ""
 
         def handle_clear_chat():
             logger.info("Clearing chat history.")
-            return [], "" # Chatbot expects an empty list for history
+            return [], ""
 
         def handle_refresh_providers():
             logger.info("Handling refresh providers button click.")
@@ -392,3 +386,4 @@ if __name__ == "__main__":
         show_error=True
     )
     logger.info("Gradio application launched.")
+�
