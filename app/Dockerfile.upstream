@@ -14,16 +14,18 @@ COPY /app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code into the container
-COPY /app/main.py .
+COPY /app/python-ollama-open-webui.py .
 
 # Environment variable for Ollama API URL (can be overridden at runtime)
 # The default points to Ollama running on the host machine or a locally networked service.
 # For Kubernetes, this would typically be a service name like 'http://ollama-service:11434'
 ENV OLLAMA_BASE_URL="http://ollama-service:11434"
 
+ENV OPEN_WEBUI_BASE_URL="http://open-webui-service:8080"
+
 # Expose the port Gradio will run on
 EXPOSE 7860
 
 # Command to run the application
 # Using unbuffered python output for better logging in containers
-CMD ["python", "-u", "main.py"]
+CMD ["python", "-u", "python-ollama-open-webui.py"]
