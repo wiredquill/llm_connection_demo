@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: chat-app
-          image: ghcr.io/wiredquill/llm_connection_demo-suse:latest # Using the SUSE variant image
+          image: ghcr.io/wiredquill/llm_connection_demo:f911579 # Using the SUSE variant image
           ports:
             - containerPort: 7860
           env:
@@ -29,8 +29,8 @@ spec:
               memory: "512Mi" # Request half a gigabyte of memory
               cpu: "250m" # Request a quarter of a CPU core
             limits:
-              memory: "1Gi"  # Allow it to use up to 1 gigabyte
-              cpu: "1"       # Allow it to use up to 1 full CPU core
+              memory: "1Gi" # Allow it to use up to 1 gigabyte
+              cpu: "1" # Allow it to use up to 1 full CPU core
           # --- END ADDED SECTION ---
           readinessProbe:
             httpGet:
