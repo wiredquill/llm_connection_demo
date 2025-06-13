@@ -3,6 +3,8 @@
 # Using Python 3.11 as an example; adjust version as needed.
 FROM registry.suse.com/bci/python:3.11
 
+RUN zypper ref && zypper install -y bash git
+
 LABEL maintainer="your-email@example.com"
 LABEL version="1.0-suse"
 LABEL description="SUSE version of the application with Ollama."
