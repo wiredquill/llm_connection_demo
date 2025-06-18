@@ -16,7 +16,7 @@ spec:
       # This initContainer will run and complete BEFORE the main ollama container starts.
       initContainers:
       - name: ollama-init
-        image: ollama/ollama:0.6.8 # Use the same ollama image
+        image: dp.apps.rancher.io/containers/ollama:0.6.8 # Use the same ollama image
         # This command starts the ollama server in the background (&), waits 5 seconds
         # for it to initialize, and then runs the pull command.
         command: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull tinyllama:latest"]
@@ -61,3 +61,4 @@ spec:
       volumes:
       - name: ollama-models
         emptyDir: {}
+      imagePullSecrets: [application-collection]
