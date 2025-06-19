@@ -26,10 +26,12 @@ class ChatInterface:
         self.config = self.load_or_create_config()
 
         # Provider status is now loaded from config
-        self.provider_status = {name: "🔴" for name in self.config['providers'].keys()}
+        self.provider_status = {name: "🔴" for name in self.config.get('providers', {}).keys()}
         
-        # Add Open WebUI to the provider list for status checking
-        self.config['providers']['Open WebUI'] = os.getenv("OPEN_WEBUI_BASE_URL", "http://localhost:8080")
+        # Add Open WebUI to the provider list for status checking, if it's defined
+        webui_url = os.getenv("OPEN_WEBUI_BASE_URL")
+        if webui_url:
+            self.config.setdefault('providers', {})['Open WebUI'] = webui_url
         
         # --- Ollama connection section remains unchanged ---
         self.ollama_models = []
@@ -117,6 +119,7 @@ class ChatInterface:
         """Updates all provider statuses in the background."""
         logger.info("Updating all provider statuses.")
         threads = []
+        # Use .get() to safely access 'providers'
         for name, url in self.config.get('providers', {}).items():
             thread = threading.Thread(target=lambda p_name=name, p_url=url: self.provider_status.update({p_name: self.check_provider_status(p_name, p_url)}))
             threads.append(thread)
@@ -210,18 +213,21 @@ def create_interface():
 
         def auto_refresh_function(is_enabled):
             if is_enabled:
+                # We need to return the updated HTML component
                 return chat_instance.refresh_providers()
+            # If auto-refresh is disabled, we tell Gradio to skip the update
             return gr.skip()
         
         def initial_load():
             return chat_instance.refresh_providers(), chat_instance.refresh_ollama_models()
         
-        # CORRECTED: The `every` parameter must be on the `Blocks.load()` event, not `change`.
-        # This will run the `auto_refresh_function` periodically.
+        # This will run the initial_load function once when the app starts
+        interface.load(initial_load, outputs=[provider_status_html, model_dropdown])
+        
+        # CORRECTED: This sets up the recurring event correctly. It runs on its own `load` event.
+        # The `auto_refresh_function` will be called every X seconds, and its logic
+        # depends on the state of the `auto_refresh_toggle` checkbox.
         interface.load(
-            initial_load,
-            outputs=[provider_status_html, model_dropdown]
-        ).then(
             fn=auto_refresh_function,
             inputs=[auto_refresh_toggle],
             outputs=[provider_status_html],
