@@ -8,16 +8,16 @@ RUN apt-get update && apt-get install -y bash git --no-install-recommends \
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container
-# CORRECTED: Paths are relative to the Docker build context.
-COPY requirements.txt .
+# CORRECTED: The path to the source file now includes the 'app/' prefix
+# to match the location within the build context (the repository root).
+COPY app/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code into the container
-# CORRECTED: Paths are relative to the Docker build context.
-COPY python-ollama-open-webui.py /app
+# CORRECTED: The path to the source file now includes the 'app/' prefix.
+# The destination is '.', which corresponds to the WORKDIR '/app'.
+COPY app/python-ollama-open-webui.py .
 
 # Expose the port Gradio will run on
 EXPOSE 7860
