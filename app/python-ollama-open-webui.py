@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class ChatInterface:
     """
     Manages the application state and logic for the Gradio chat interface.
-    MODIFIED: Now loads configuration from config.json and includes auto-refresh for providers.
+    MODIFIED: Auto-refresh functionality has been removed for stability.
     """
     def __init__(self):
         self.config_path = 'config.json'
@@ -41,7 +41,6 @@ class ChatInterface:
             self.ollama_base_url = self.ollama_base_url[:-1]
         
         logger.info(f"ChatInterface initialized. Ollama URL: {self.ollama_base_url}")
-        logger.info(f"Provider auto-refresh enabled: {self.config.get('auto_refresh_providers', True)}, Interval: {self.config.get('auto_refresh_interval_seconds', 60)}s")
 
     def load_or_create_config(self) -> Dict:
         """Loads configuration from config.json, or creates it with defaults if it doesn't exist."""
@@ -52,19 +51,16 @@ class ChatInterface:
                 "Cohere": "https://cohere.ai", "Mistral AI": "https://mistral.ai",
                 "Perplexity": "https://perplexity.ai", "Together AI": "https://together.xyz",
                 "Groq": "https://groq.com", "Hugging Face": "https://huggingface.co"
-            },
-            "auto_refresh_providers": True,
-            "auto_refresh_interval_seconds": 60
+            }
         }
         
         if os.path.exists(self.config_path):
             logger.info(f"Loading configuration from {self.config_path}")
             with open(self.config_path, 'r') as f:
                 try:
+                    # Load existing config and ensure it has the providers key
                     config_data = json.load(f)
-                    # Ensure all default keys are present
-                    for key, value in default_config.items():
-                        config_data.setdefault(key, value)
+                    config_data.setdefault('providers', default_config['providers'])
                     return config_data
                 except json.JSONDecodeError:
                     logger.error("Error decoding config.json, using default config.")
@@ -119,7 +115,6 @@ class ChatInterface:
         """Updates all provider statuses in the background."""
         logger.info("Updating all provider statuses.")
         threads = []
-        # Use .get() to safely access 'providers'
         for name, url in self.config.get('providers', {}).items():
             thread = threading.Thread(target=lambda p_name=name, p_url=url: self.provider_status.update({p_name: self.check_provider_status(p_name, p_url)}))
             threads.append(thread)
@@ -132,7 +127,6 @@ class ChatInterface:
         logger.info("Manual provider refresh triggered.")
         self.update_all_provider_status()
         html_content = "<div style='background: #0c322c; padding: 15px; border-radius: 10px; margin-bottom: 10px;'><div style='color: #efefef; font-size: 14px; line-height: 1.8;'>"
-        # Use a temporary copy of provider status to avoid issues with dict size changes during iteration
         for name, status in list(self.provider_status.items()):
             html_content += f"{status} {name}<br/>"
         html_content += "</div></div>"
@@ -175,9 +169,8 @@ def create_interface():
                 gr.HTML("<h3 style='text-align: center; margin-top: 0;'>🌐 Provider Status</h3>")
                 provider_status_html = gr.HTML()
                 
-                with gr.Row():
-                    refresh_providers_btn = gr.Button("🔄 Refresh Status", elem_classes="refresh-btn", scale=2)
-                    auto_refresh_toggle = gr.Checkbox(label="Auto", value=chat_instance.config.get('auto_refresh_providers', True), scale=1)
+                # REMOVED: Auto-refresh checkbox and associated logic
+                refresh_providers_btn = gr.Button("🔄 Refresh Status", elem_classes="refresh-btn")
                 
                 gr.HTML("<hr style='border-color: rgba(255,255,255,0.2); margin: 20px 0;'>")
                 gr.HTML("<h3 style='text-align: center;'>🤖 Ollama Settings</h3>")
@@ -211,28 +204,11 @@ def create_interface():
         refresh_providers_btn.click(chat_instance.refresh_providers, outputs=[provider_status_html])
         refresh_models_btn.click(chat_instance.refresh_ollama_models, outputs=[model_dropdown])
 
-        def auto_refresh_function(is_enabled):
-            if is_enabled:
-                # We need to return the updated HTML component
-                return chat_instance.refresh_providers()
-            # If auto-refresh is disabled, we tell Gradio to skip the update
-            return gr.skip()
-        
         def initial_load():
             return chat_instance.refresh_providers(), chat_instance.refresh_ollama_models()
         
-        # This will run the initial_load function once when the app starts
+        # REMOVED: All auto-refresh logic to prevent crashes
         interface.load(initial_load, outputs=[provider_status_html, model_dropdown])
-        
-        # CORRECTED: This sets up the recurring event correctly. It runs on its own `load` event.
-        # The `auto_refresh_function` will be called every X seconds, and its logic
-        # depends on the state of the `auto_refresh_toggle` checkbox.
-        interface.load(
-            fn=auto_refresh_function,
-            inputs=[auto_refresh_toggle],
-            outputs=[provider_status_html],
-            every=chat_instance.config.get('auto_refresh_interval_seconds', 60)
-        )
 
     return interface
 
