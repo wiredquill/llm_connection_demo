@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: chat-app
-          image: ghcr.io/wiredquill/llm_connection_demo:1404148 # Using the SUSE variant image
+          image: ghcr.io/wiredquill/llm_connection_demo:12f3391 # Using the SUSE variant image
           ports:
             - containerPort: 7860
           env:
