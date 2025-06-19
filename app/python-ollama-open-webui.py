@@ -139,8 +139,78 @@ def create_interface():
     logger.info("Creating Gradio interface.")
     chat_instance = ChatInterface()
     
-    # --- UI layout and CSS are UNCHANGED from original ---
+    # CORRECTED: The triple-quoted string for CSS is now properly terminated.
     css = """
     .gradio-container { background-color: #0c322c; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #efefef; }
     .main-header { background-color: #30ba78; border: 1px solid #30ba78; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 20px; margin-bottom: 20px; }
-    .control-panel, .chat-container { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(48, 186, 
+    .control-panel, .chat-container { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(48, 186, 120, 0.2); border-radius: 12px; padding: 15px; }
+    h1, h2, h3 { color: #ffffff; font-weight: 600; }
+    .gr-button { background: #30ba78; color: #ffffff; border: none; border-radius: 8px; box-shadow: 0 4px 10px rgba(48, 186, 120, 0.3); transition: all 0.2s ease; font-weight: 600; }
+    .gr-button:hover { background: #35d489; transform: translateY(-1px); box-shadow: 0 6px 15px rgba(48, 186, 120, 0.4); }
+    .refresh-btn { background: #2453ff; }
+    .refresh-btn:hover { background: #4f75ff; }
+    .gr-chatbot .message.user { background-color: #efefef; color: #0c322c; }
+    .gr-chatbot .message.bot { background-color: #e0f8ee; color: #0c322c; }
+    """
+    
+    with gr.Blocks(css=css, title="SUSE AI Chat", theme=gr.themes.Base()) as interface:
+        gr.HTML("""
+        <div class="main-header">
+            <h1 style="text-align: center; color: white; font-size: 2.2em; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);">SUSE AI Chat</h1>
+            <p style="text-align: center; color: rgba(255,255,255,0.95); font-size: 1.1em;">Powered by Ollama | Provider Status Monitor</p>
+        </div>
+        """)
+        with gr.Row(equal_height=False):
+            with gr.Column(scale=1, elem_classes="control-panel"):
+                gr.HTML("<h3 style='text-align: center; margin-top: 0;'>🌐 Provider Status</h3>")
+                provider_status_html = gr.HTML()
+                refresh_providers_btn = gr.Button("🔄 Refresh Status", elem_classes="refresh-btn")
+                
+                gr.HTML("<hr style='border-color: rgba(255,255,255,0.2); margin: 20px 0;'>")
+                gr.HTML("<h3 style='text-align: center;'>🤖 Ollama Settings</h3>")
+                model_dropdown = gr.Dropdown(choices=["Loading..."], label="Select Ollama Model", value="", allow_custom_value=True)
+                refresh_models_btn = gr.Button("🔄 Refresh Models", elem_classes="refresh-btn")
+
+            with gr.Column(scale=3):
+                 with gr.Column(elem_classes="chat-container"):
+                    chatbot = gr.Chatbot(label="💬 Chat", height=550, show_label=False, bubble_full_width=False, elem_id="chatbot")
+                    with gr.Row():
+                        msg_input = gr.Textbox(label="Message", placeholder="Type your message...", lines=2, scale=4)
+                        send_btn = gr.Button("Send ❯", scale=1, variant="primary")
+                    clear_btn = gr.Button("🗑️ Clear Chat", variant="secondary")
+
+        def handle_send_message(message: str, history: List[List[str]], model: str):
+            if not message.strip(): return history, ""
+            history.append([message, None])
+            if not model or any(err in model for err in ["Error", "No models", "Connection"]):
+                history[-1][1] = "⚠️ Please select a valid Ollama model first."
+                return history, ""
+            messages_for_api = [{"role": "user" if i % 2 == 0 else "assistant", "content": turn[0]} for i, turn in enumerate(history)]
+            messages_for_api[-1]["content"] = message
+            
+            # MODIFIED: Call the direct-to-ollama chat function
+            bot_reply = chat_instance.chat_with_ollama(messages_for_api, model)
+            history[-1][1] = bot_reply
+            return history, ""
+
+        def handle_clear_chat(): return [], ""
+
+        # MODIFIED: Wire up components to the correct, ollama-direct functions
+        send_btn.click(handle_send_message, inputs=[msg_input, chatbot, model_dropdown], outputs=[chatbot, msg_input])
+        msg_input.submit(handle_send_message, inputs=[msg_input, chatbot, model_dropdown], outputs=[chatbot, msg_input])
+        clear_btn.click(handle_clear_chat, outputs=[chatbot, msg_input])
+        refresh_providers_btn.click(chat_instance.refresh_providers, outputs=[provider_status_html])
+        refresh_models_btn.click(chat_instance.refresh_ollama_models, outputs=[model_dropdown])
+
+        def initial_load():
+            provider_html_val = chat_instance.refresh_providers()
+            model_dropdown_val = chat_instance.refresh_ollama_models()
+            return provider_html_val, model_dropdown_val
+            
+        interface.load(fn=initial_load, outputs=[provider_status_html, model_dropdown])
+    return interface
+
+if __name__ == "__main__":
+    logger.info("Starting Chat Interface application.")
+    app_interface = create_interface()
+    app_interface.launch(server_name="0.0.0.0", server_port=7860, show_error=True)
