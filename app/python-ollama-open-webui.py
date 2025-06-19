@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 class ChatInterface:
     """
     Manages the application state and logic for the Gradio chat interface.
-    MODIFIED: Auto-refresh functionality has been removed for stability.
     """
     def __init__(self):
         self.config_path = 'config.json'
@@ -144,7 +143,13 @@ def create_interface():
     logger.info("Creating Gradio interface.")
     chat_instance = ChatInterface()
     
+    # MODIFIED: Updated CSS for better UI styling and a processing indicator.
     css = """
+    @keyframes thinking {
+      0% { background-color: #d1e7dd; }
+      50% { background-color: #c1d7cd; }
+      100% { background-color: #d1e7dd; }
+    }
     .gradio-container { background-color: #0c322c; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #efefef; }
     .main-header { background-color: #30ba78; border: 1px solid #30ba78; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 20px; margin-bottom: 20px; }
     .control-panel, .chat-container { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(48, 186, 120, 0.2); border-radius: 12px; padding: 15px; }
@@ -153,8 +158,15 @@ def create_interface():
     .gr-button:hover { background: #35d489; transform: translateY(-1px); box-shadow: 0 6px 15px rgba(48, 186, 120, 0.4); }
     .refresh-btn { background: #2453ff; }
     .refresh-btn:hover { background: #4f75ff; }
-    .gr-chatbot .message.user { background-color: #efefef; color: #0c322c; }
-    .gr-chatbot .message.bot { background-color: #e0f8ee; color: #0c322c; }
+
+    .gr-chatbot .message { border-radius: 12px !important; padding: 12px !important; }
+    .gr-chatbot .message.user { background-color: #dbeafe !important; color: #1e3a8a !important; }
+    .gr-chatbot .message.bot { background-color: #d1e7dd !important; color: #0f5132 !important; }
+    
+    /* Style for the "thinking" message placeholder */
+    .gr-chatbot .message.bot:has(div.generating) {
+        animation: thinking 2s infinite ease-in-out;
+    }
     """
     
     with gr.Blocks(css=css, title="SUSE AI Chat", theme=gr.themes.Base()) as interface:
@@ -169,7 +181,6 @@ def create_interface():
                 gr.HTML("<h3 style='text-align: center; margin-top: 0;'>🌐 Provider Status</h3>")
                 provider_status_html = gr.HTML()
                 
-                # REMOVED: Auto-refresh checkbox and associated logic
                 refresh_providers_btn = gr.Button("🔄 Refresh Status", elem_classes="refresh-btn")
                 
                 gr.HTML("<hr style='border-color: rgba(255,255,255,0.2); margin: 20px 0;'>")
@@ -207,7 +218,6 @@ def create_interface():
         def initial_load():
             return chat_instance.refresh_providers(), chat_instance.refresh_ollama_models()
         
-        # REMOVED: All auto-refresh logic to prevent crashes
         interface.load(initial_load, outputs=[provider_status_html, model_dropdown])
 
     return interface
