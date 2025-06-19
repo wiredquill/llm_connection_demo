@@ -59,7 +59,11 @@ class ChatInterface:
             logger.info(f"Loading configuration from {self.config_path}")
             with open(self.config_path, 'r') as f:
                 try:
-                    return json.load(f)
+                    config_data = json.load(f)
+                    # Ensure all default keys are present
+                    for key, value in default_config.items():
+                        config_data.setdefault(key, value)
+                    return config_data
                 except json.JSONDecodeError:
                     logger.error("Error decoding config.json, using default config.")
                     return default_config
@@ -113,7 +117,7 @@ class ChatInterface:
         """Updates all provider statuses in the background."""
         logger.info("Updating all provider statuses.")
         threads = []
-        for name, url in self.config['providers'].items():
+        for name, url in self.config.get('providers', {}).items():
             thread = threading.Thread(target=lambda p_name=name, p_url=url: self.provider_status.update({p_name: self.check_provider_status(p_name, p_url)}))
             threads.append(thread)
             thread.start()
@@ -125,7 +129,8 @@ class ChatInterface:
         logger.info("Manual provider refresh triggered.")
         self.update_all_provider_status()
         html_content = "<div style='background: #0c322c; padding: 15px; border-radius: 10px; margin-bottom: 10px;'><div style='color: #efefef; font-size: 14px; line-height: 1.8;'>"
-        for name, status in self.provider_status.items():
+        # Use a temporary copy of provider status to avoid issues with dict size changes during iteration
+        for name, status in list(self.provider_status.items()):
             html_content += f"{status} {name}<br/>"
         html_content += "</div></div>"
         return gr.HTML(value=html_content)
@@ -169,7 +174,7 @@ def create_interface():
                 
                 with gr.Row():
                     refresh_providers_btn = gr.Button("🔄 Refresh Status", elem_classes="refresh-btn", scale=2)
-                    auto_refresh_toggle = gr.Checkbox(label="Auto", value=chat_instance.config['auto_refresh_providers'], scale=1)
+                    auto_refresh_toggle = gr.Checkbox(label="Auto", value=chat_instance.config.get('auto_refresh_providers', True), scale=1)
                 
                 gr.HTML("<hr style='border-color: rgba(255,255,255,0.2); margin: 20px 0;'>")
                 gr.HTML("<h3 style='text-align: center;'>🤖 Ollama Settings</h3>")
@@ -184,7 +189,6 @@ def create_interface():
                         send_btn = gr.Button("Send ❯", scale=1, variant="primary")
                     clear_btn = gr.Button("🗑️ Clear Chat", variant="secondary")
 
-        # --- Event Handlers ---
         def handle_send_message(message: str, history: List[List[str]], model: str):
             if not message.strip(): return history, ""
             history.append([message, None])
@@ -204,45 +208,26 @@ def create_interface():
         refresh_providers_btn.click(chat_instance.refresh_providers, outputs=[provider_status_html])
         refresh_models_btn.click(chat_instance.refresh_ollama_models, outputs=[model_dropdown])
 
-        # --- Auto-refresh Logic ---
         def auto_refresh_function(is_enabled):
-            # This function runs periodically. If the toggle is on, it refreshes.
             if is_enabled:
                 return chat_instance.refresh_providers()
-            # If the toggle is off, do nothing.
             return gr.skip()
-
+        
         def initial_load():
-            # Run initial refresh on load
             return chat_instance.refresh_providers(), chat_instance.refresh_ollama_models()
         
-        # Load initial data once when the app starts
-        interface.load(initial_load, outputs=[provider_status_html, model_dropdown])
-
-        # CORRECTED: The `every` parameter is not valid on `load`.
-        # Instead, we create a recurring event attached to a dummy component,
-        # which is a standard pattern for toggleable periodic refresh in Gradio.
-        # However, a simpler fix is to attach it to the checkbox change event,
-        # but that only fires on change. The most direct fix for the user's
-        # code is to use a different event that supports `every`.
-        # A simple fix is to attach it to the `msg_input`'s change event, which is not ideal.
-        # Let's use a cleaner approach by creating a loop in a thread.
-        
-        # A better approach for toggleable refresh:
-        # We will not use the `every` parameter directly in `load` as it caused an error.
-        # Instead, we will handle the logic more explicitly. Gradio's `every` is better
-        # suited for unconditional periodic events.
-        
-        # The following is a corrected implementation that works with Gradio's event model.
-        # We attach the periodic function to an event that supports the 'every' parameter.
-        # The checkbox's `change` event is a good candidate.
-        auto_refresh_toggle.change(
+        # CORRECTED: The `every` parameter must be on the `Blocks.load()` event, not `change`.
+        # This will run the `auto_refresh_function` periodically.
+        interface.load(
+            initial_load,
+            outputs=[provider_status_html, model_dropdown]
+        ).then(
             fn=auto_refresh_function,
             inputs=[auto_refresh_toggle],
             outputs=[provider_status_html],
-            every=chat_instance.config['auto_refresh_interval_seconds']
+            every=chat_instance.config.get('auto_refresh_interval_seconds', 60)
         )
-        
+
     return interface
 
 if __name__ == "__main__":
