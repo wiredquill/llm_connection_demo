@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code into the container
 # CORRECTED: Paths are relative to the Docker build context.
-COPY python-ollama-open-webui.py .
+COPY python-ollama-open-webui.py /app
 
 # Expose the port Gradio will run on
 EXPOSE 7860
