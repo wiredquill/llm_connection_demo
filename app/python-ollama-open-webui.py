@@ -19,36 +19,59 @@ logger = logging.getLogger(__name__)
 class ChatInterface:
     """
     Manages the application state and logic for the Gradio chat interface.
-    MODIFIED: Chat now talks directly to Ollama. Open-WebUI is for status checks.
     """
     def __init__(self):
-        # --- Provider Status Section (includes Open-WebUI) ---
-        self.providers = {
-            "OpenAI": "https://openai.com",
-            "Claude (Anthropic)": "https://anthropic.com",
-            "DeepSeek": "https://deepseek.com",
-            "Google Gemini": "https://aistudio.google.com",
-            "Cohere": "https://cohere.ai",
-            "Mistral AI": "https://mistral.ai",
-            "Perplexity": "https://perplexity.ai",
-            "Together AI": "https://together.xyz",
-            "Groq": "https://groq.com",
-            "Hugging Face": "https://huggingface.co",
-            "Open WebUI": os.getenv("OPEN_WEBUI_BASE_URL", "http://localhost:8080")
-        }
-        self.provider_status = {name: "🔴" for name in self.providers.keys()}
+        self.config_path = 'config.json'
+        self.config = self.load_or_create_config()
 
-        # --- Direct Ollama Connection Section ---
+        # Provider status is now loaded from config
+        self.provider_status = {name: "🔴" for name in self.config.get('providers', {}).keys()}
+        
+        # Add Open WebUI to the provider list for status checking, if it's defined
+        webui_url = os.getenv("OPEN_WEBUI_BASE_URL")
+        if webui_url:
+            self.config.setdefault('providers', {})['Open WebUI'] = webui_url
+        
+        # --- Ollama connection section remains unchanged ---
         self.ollama_models = []
         self.selected_model = ""
         self.ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        if self.ollama_base_url.endswith('/'):
+            self.ollama_base_url = self.ollama_base_url[:-1]
         
-        logger.info(f"ChatInterface initialized. Ollama URL: {self.ollama_base_url}, Open-WebUI URL: {self.providers['Open WebUI']}")
+        logger.info(f"ChatInterface initialized. Ollama URL: {self.ollama_base_url}")
+
+    def load_or_create_config(self) -> Dict:
+        """Loads configuration from config.json, or creates it with defaults if it doesn't exist."""
+        default_config = {
+            "providers": {
+                "OpenAI": "https://openai.com", "Claude (Anthropic)": "https://anthropic.com",
+                "DeepSeek": "https://deepseek.com", "Google Gemini": "https://aistudio.google.com",
+                "Cohere": "https://cohere.ai", "Mistral AI": "https://mistral.ai",
+                "Perplexity": "https://perplexity.ai", "Together AI": "https://together.xyz",
+                "Groq": "https://groq.com", "Hugging Face": "https://huggingface.co"
+            }
+        }
+        
+        if os.path.exists(self.config_path):
+            logger.info(f"Loading configuration from {self.config_path}")
+            with open(self.config_path, 'r') as f:
+                try:
+                    # Load existing config and ensure it has the providers key
+                    config_data = json.load(f)
+                    config_data.setdefault('providers', default_config['providers'])
+                    return config_data
+                except json.JSONDecodeError:
+                    logger.error("Error decoding config.json, using default config.")
+                    return default_config
+        else:
+            logger.info(f"Creating default configuration file at {self.config_path}")
+            with open(self.config_path, 'w') as f:
+                json.dump(default_config, f, indent=4)
+            return default_config
 
     def get_ollama_models(self) -> List[str]:
-        """
-        Fetches the list of available models directly from the Ollama /api/tags endpoint.
-        """
+        """Fetches the list of available models from the Ollama /api/tags endpoint."""
         logger.info(f"Attempting to fetch Ollama models from {self.ollama_base_url}/api/tags")
         try:
             response = requests.get(f"{self.ollama_base_url}/api/tags", timeout=5)
@@ -56,126 +79,150 @@ class ChatInterface:
             data = response.json()
             models = [model['name'] for model in data.get('models', [])]
             if not models:
-                logger.warning("No Ollama models found.")
+                logger.warning("No Ollama models found at the endpoint.")
                 return ["No models found at Ollama endpoint."]
             logger.info(f"Successfully fetched Ollama models: {models}")
             self.ollama_models = models
             return models
-        except requests.exceptions.RequestException:
-            logger.error("Connection Error fetching Ollama models.")
-            return ["Connection Error - Is Ollama running?"]
         except Exception as e:
             logger.error(f"Error fetching Ollama models: {str(e)}")
-            return [f"Error: {str(e)}"]
+            return ["Connection Error - Is Ollama running?"]
 
     def chat_with_ollama(self, messages: List[Dict[str, str]], model: str) -> str:
-        """
-        Sends a conversation history directly to the Ollama /api/chat endpoint.
-        """
+        """Sends a conversation history to the Ollama /api/chat endpoint."""
         logger.info(f"Attempting to chat with Ollama model: {model}")
         try:
-            payload = {"model": model, "messages": messages, "stream": False}
+            payload = { "model": model, "messages": messages, "stream": False }
             response = requests.post(f"{self.ollama_base_url}/api/chat", json=payload, timeout=60)
             response.raise_for_status()
             response_data = response.json()
-            reply = response_data.get('message', {}).get('content', 'Error: Unexpected response format.')
-            logger.info(f"Received reply from Ollama model {model}.")
+            reply = response_data.get('message', {}).get('content', 'Error: Unexpected response format from Ollama.')
             return reply
-        except requests.exceptions.RequestException as e:
-            error_message = f"Error communicating with Ollama: {type(e).__name__}"
-            logger.error(f"{error_message} for model {model}.")
-            return error_message
         except Exception as e:
-            logger.error(f"An unexpected error occurred: {str(e)}")
-            return f"An unexpected error occurred: {str(e)}"
+            return f"Error communicating with Ollama: {str(e)}"
 
-    # --- Provider status functions remain unchanged ---
     def check_provider_status(self, provider_name: str, url: str) -> str:
-        logger.info(f"Checking status for provider: {provider_name} at URL: {url}")
+        """Checks the status of a single provider."""
         try:
             headers = {'User-Agent': 'Mozilla/5.0'}
             response = requests.get(url, timeout=3, headers=headers)
-            if response.status_code in [200, 401, 403]: return "🟢"
-            else: return "🔴"
-        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError): return "🔴"
-        except Exception: return "❓"
+            return "🟢" if response.status_code in [200, 401, 403] else "🔴"
+        except Exception:
+            return "❓"
 
     def update_all_provider_status(self):
+        """Updates all provider statuses in the background."""
+        logger.info("Updating all provider statuses.")
         threads = []
-        for name, url in self.providers.items():
-            thread = threading.Thread(target=lambda p_name, p_url: setattr(self, 'provider_status', {**self.provider_status, p_name: self.check_provider_status(p_name, p_url)}), args=(name, url))
+        for name, url in self.config.get('providers', {}).items():
+            thread = threading.Thread(target=lambda p_name=name, p_url=url: self.provider_status.update({p_name: self.check_provider_status(p_name, p_url)}))
             threads.append(thread)
             thread.start()
-        for thread in threads:
-            thread.join()
+        for t in threads:
+            t.join()
 
-    def refresh_providers_html(self) -> gr.HTML:
-        logger.info("Refreshing provider status display.")
+    def refresh_providers(self) -> gr.HTML:
+        """Manually refreshes provider statuses and returns the HTML."""
+        logger.info("Manual provider refresh triggered.")
         self.update_all_provider_status()
-        html_content = "<div style='padding: 15px; border-radius: 10px;'>"
-        for name, status in self.provider_status.items():
+        html_content = "<div style='background: #0c322c; padding: 15px; border-radius: 10px; margin-bottom: 10px;'><div style='color: #efefef; font-size: 14px; line-height: 1.8;'>"
+        for name, status in list(self.provider_status.items()):
             html_content += f"{status} {name}<br/>"
-        html_content += "</div>"
+        html_content += "</div></div>"
         return gr.HTML(value=html_content)
-    
-    def refresh_ollama_models_dropdown(self) -> gr.Dropdown:
+
+    def refresh_ollama_models(self) -> gr.Dropdown:
+        """Refreshes the dropdown with models from Ollama."""
         logger.info("Refreshing Ollama models dropdown.")
-        models = self.get_ollama_models()
-        current_value = self.selected_model if self.selected_model in models else (models[0] if models and "Error" not in models[0] else "")
+        self.ollama_models = self.get_ollama_models()
+        current_value = self.selected_model if self.selected_model in self.ollama_models else (self.ollama_models[0] if self.ollama_models and "Error" not in self.ollama_models[0] else "")
         self.selected_model = current_value
-        return gr.Dropdown(choices=models, label="🤖 Ollama Model", value=current_value, allow_custom_value=True)
+        return gr.Dropdown(choices=self.ollama_models, label="🤖 Ollama Model", value=current_value, allow_custom_value=True)
 
 def create_interface():
     logger.info("Creating Gradio interface.")
     chat_instance = ChatInterface()
     
-    with gr.Blocks(title="Ollama Chat", theme=gr.themes.Base()) as interface:
-        gr.HTML("<h1>Direct to Ollama Chat</h1><p>Chat with models served by your Ollama instance.</p>")
-        with gr.Row():
-            with gr.Column(scale=1):
-                gr.HTML("<h3>🌐 Provider Status</h3>")
+    # MODIFIED: Updated CSS for better UI styling and a processing indicator.
+    css = """
+    @keyframes thinking {
+      0% { background-color: #d1e7dd; }
+      50% { background-color: #c1d7cd; }
+      100% { background-color: #d1e7dd; }
+    }
+    .gradio-container { background-color: #0c322c; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #efefef; }
+    .main-header { background-color: #30ba78; border: 1px solid #30ba78; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 20px; margin-bottom: 20px; }
+    .control-panel, .chat-container { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(48, 186, 120, 0.2); border-radius: 12px; padding: 15px; }
+    h1, h2, h3 { color: #ffffff; font-weight: 600; }
+    .gr-button { background: #30ba78; color: #ffffff; border: none; border-radius: 8px; box-shadow: 0 4px 10px rgba(48, 186, 120, 0.3); transition: all 0.2s ease; font-weight: 600; }
+    .gr-button:hover { background: #35d489; transform: translateY(-1px); box-shadow: 0 6px 15px rgba(48, 186, 120, 0.4); }
+    .refresh-btn { background: #2453ff; }
+    .refresh-btn:hover { background: #4f75ff; }
+
+    .gr-chatbot .message { border-radius: 12px !important; padding: 12px !important; }
+    .gr-chatbot .message.user { background-color: #dbeafe !important; color: #1e3a8a !important; }
+    .gr-chatbot .message.bot { background-color: #d1e7dd !important; color: #0f5132 !important; }
+    
+    /* Style for the "thinking" message placeholder */
+    .gr-chatbot .message.bot:has(div.generating) {
+        animation: thinking 2s infinite ease-in-out;
+    }
+    """
+    
+    with gr.Blocks(css=css, title="SUSE AI Chat", theme=gr.themes.Base()) as interface:
+        gr.HTML("""
+        <div class="main-header">
+            <h1 style="text-align: center; color: white; font-size: 2.2em; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);">SUSE AI Chat</h1>
+            <p style="text-align: center; color: rgba(255,255,255,0.95); font-size: 1.1em;">Powered by Ollama | Provider Status Monitor</p>
+        </div>
+        """)
+        with gr.Row(equal_height=False):
+            with gr.Column(scale=1, elem_classes="control-panel"):
+                gr.HTML("<h3 style='text-align: center; margin-top: 0;'>🌐 Provider Status</h3>")
                 provider_status_html = gr.HTML()
-                refresh_providers_btn = gr.Button("🔄 Refresh Status")
                 
-                gr.HTML("<hr><h3>🤖 Ollama Settings</h3>")
-                model_dropdown = gr.Dropdown(choices=["Loading..."], label="Select Ollama Model")
-                refresh_models_btn = gr.Button("🔄 Refresh Models")
+                refresh_providers_btn = gr.Button("🔄 Refresh Status", elem_classes="refresh-btn")
+                
+                gr.HTML("<hr style='border-color: rgba(255,255,255,0.2); margin: 20px 0;'>")
+                gr.HTML("<h3 style='text-align: center;'>🤖 Ollama Settings</h3>")
+                model_dropdown = gr.Dropdown(choices=["Loading..."], label="Select Ollama Model", value="", allow_custom_value=True)
+                refresh_models_btn = gr.Button("🔄 Refresh Models", elem_classes="refresh-btn")
 
             with gr.Column(scale=3):
-                chatbot = gr.Chatbot(label="Chat", height=550)
-                with gr.Row():
-                    msg_input = gr.Textbox(label="Message", placeholder="Type your message...", lines=2, scale=4)
-                    send_btn = gr.Button("Send", variant="primary")
-                clear_btn = gr.Button("🗑️ Clear Chat")
+                 with gr.Column(elem_classes="chat-container"):
+                    chatbot = gr.Chatbot(label="💬 Chat", height=550, show_label=False, bubble_full_width=False, elem_id="chatbot")
+                    with gr.Row():
+                        msg_input = gr.Textbox(label="Message", placeholder="Type your message...", lines=2, scale=4)
+                        send_btn = gr.Button("Send ❯", scale=1, variant="primary")
+                    clear_btn = gr.Button("🗑️ Clear Chat", variant="secondary")
 
         def handle_send_message(message: str, history: List[List[str]], model: str):
             if not message.strip(): return history, ""
             history.append([message, None])
-            if not model or "Error" in model or "No models" in model:
+            if not model or any(err in model for err in ["Error", "No models", "Connection"]):
                 history[-1][1] = "⚠️ Please select a valid Ollama model first."
                 return history, ""
-            messages_for_api = [{"role": "user" if i % 2 == 0 else "assistant", "content": turn[1]} for i, turn in enumerate(history) if turn[1]]
-            messages_for_api.insert(-1, {"role": "user", "content": message})
-            
+            messages_for_api = [{"role": "user" if i % 2 == 0 else "assistant", "content": turn[0]} for i, turn in enumerate(history)]
+            messages_for_api[-1]["content"] = message
             bot_reply = chat_instance.chat_with_ollama(messages_for_api, model)
             history[-1][1] = bot_reply
             return history, ""
-        
+
         send_btn.click(handle_send_message, inputs=[msg_input, chatbot, model_dropdown], outputs=[chatbot, msg_input])
         msg_input.submit(handle_send_message, inputs=[msg_input, chatbot, model_dropdown], outputs=[chatbot, msg_input])
         clear_btn.click(lambda: ([], ""), outputs=[chatbot, msg_input])
-        refresh_providers_btn.click(chat_instance.refresh_providers_html, outputs=[provider_status_html])
-        refresh_models_btn.click(chat_instance.refresh_ollama_models_dropdown, outputs=[model_dropdown])
         
+        refresh_providers_btn.click(chat_instance.refresh_providers, outputs=[provider_status_html])
+        refresh_models_btn.click(chat_instance.refresh_ollama_models, outputs=[model_dropdown])
+
         def initial_load():
-            provider_html_val = chat_instance.refresh_providers_html()
-            model_dropdown_val = chat_instance.refresh_ollama_models_dropdown()
-            return provider_html_val, model_dropdown_val
-            
-        interface.load(fn=initial_load, outputs=[provider_status_html, model_dropdown])
+            return chat_instance.refresh_providers(), chat_instance.refresh_ollama_models()
+        
+        interface.load(initial_load, outputs=[provider_status_html, model_dropdown])
+
     return interface
 
 if __name__ == "__main__":
+    logger.info("Starting Chat Interface application.")
     app_interface = create_interface()
     app_interface.launch(server_name="0.0.0.0", server_port=7860, show_error=True)
-
